@@ -68,14 +68,26 @@ contract TawaslNFT is ERC1155, Ownable {
     }
 
     modifier notSubscribed() {
+        if (subscriptions[msg.sender].isValue == true)
+            require(
+                block.timestamp - subscriptions[msg.sender].subscriptionDate >
+                    (86400 * 365),
+                "You are  subscribed"
+            ); // //30 Day Subscription
         _;
     }
 
     modifier isMeeting() {
+        require(meetings[id].isValue == true, "Meeting does not exist");
         _;
     }
 
     modifier isMeetingOwner() {
+        require(meetings[id].isValue == true, "Not a valid meeting");
+        require(
+            meetings[id].owner == msg.sender,
+            "You are not the owner of this meeting"
+        );
         _;
     }
 
@@ -98,7 +110,9 @@ contract TawaslNFT is ERC1155, Ownable {
 
     function setSubscriptionFee() public onlyOwner {}
 
-    function getSubscriptionFee() public view returns (uint256) {}
+    function getSubscriptionFee() public view returns (uint256) {
+        return subscriptionFee;
+    }
 
     function withdraw() public isMeetingOwner(tokenId) {}
 }
