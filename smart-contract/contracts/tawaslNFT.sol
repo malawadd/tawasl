@@ -91,28 +91,119 @@ contract TawaslNFT is ERC1155, Ownable {
         _;
     }
 
-    function subscribed() public view returns (bool) {}
+    function subscribed() public view returns (bool) {
+        if (
+            subscriptions[msg.sender].isValue == true &&
+            block.timestamp - subscriptions[msg.sender].subscriptionDate <=
+            (86400 * 365)
+        ) return true;
+        return false;
+    }
 
-    function subscribe() public notSubscribed {}
+    function subscribe() public notSubscribed {
+        uint256 senderBalanceRequired = subscriptionFee * 10**6;
+        require(
+            usdcToken.balanceOf(msg.sender) >= senderBalanceRequired,
+            "You do not have enough USDC to subscribe"
+        );
+        usdcToken.transferFrom(
+            msg.sender,
+            address(this),
+            senderBalanceRequired
+        );
+        subscriptions[msg.sender].isValue = true;
+        subscriptions[msg.sender].subscriptionDate = block.timestamp;
+        subscriptions[msg.sender].subscriber = msg.sender;
+        subscriptionBalance += senderBalanceRequired;
+        emit Subscribed(msg.sender, block.timestamp);
+    }
 
-    function createMeeting() external returns (uint256 tokenId) {}
+    function createMeeting(
+        string calldata _name,
+        string calldata _uri,
+        uint256 startDate,
+        bool isPublic,
+        uint256 cost
+    ) external returns (uint256 tokenId) {
+        _tokenIdCounter.increment();
+        uint256 index = _tokenIdCounter.current();
+        meetings[index].name = _name;
+        meetings[index].startDate = startDate;
+        meetings[index].uri = _uri;
+        meetings[index].owner = msg.sender;
+        meetings[index].isPublic = isPublic;
+        meetings[index].cost = cost;
+        tokenId = _tokenIdCounter.current();
+        _mint(msg.sender, tokenId, 1, " ");
+        meetings[index].minted += 1;
+        emit MeetingCreated(
+            tokenId,
+            _name,
+            msg.sender,
+            block.timestamp,
+            startDate,
+            isPublic,
+            cost
+        );
+    }
 
-    function mintNFT(uint256 tokenId) external isMeeting(tokenId) {}
+    function sendInvite(uint256 tokenId, address invitee)
+        external
+        isMeetingOwner(tokenId)
+    {
+        _mint(invitee, tokenId, 1, "");
+        meetings[tokenId].minted++;
+    }
 
-    function uri(uint256 tokenId)
+    function mintNFT(uint256 tokenId) external isMeeting(tokenId) {
+        require(meetings[tokenId].isPublic == true, "Meeting not public");
+        require(
+            balanceOf(msg.sender, tokenId) == 0,
+            "You already subscribed for this meeting"
+        );
+        if (meetings[tokenId].cost > 0) {
+            uint256 senderBalanceRequired = meetings[tokenId].cost * 10**6;
+            require(
+                usdcToken.balanceOf(msg.sender) >= senderBalanceRequired,
+                "You do not have enough USDC to subscribe"
+            );
+            usdcToken.transferFrom(
+                msg.sender,
+                address(this),
+                senderBalanceRequired
+            );
+            meetings[tokenId].balance += senderBalanceRequired;
+        }
+        _mint(msg.sender, tokenId, 1, "");
+        meetings[tokenId].minted++;
+    }
+
+    function uri(uint256 tokenId) public view override returns (string memory) {
+        return string(abi.encodePacked(meetings[tokenId].uri));
+    }
+
+    function setUri(uint256 tokenId, string calldata _uri)
         public
-        view
-        override
-        returns (string memory)
-    {}
+        isMeetingOwner(tokenId)
+    {
+        meetings[tokenId].uri = _uri;
+    }
 
-    function setUri() public isMeetingOwner(tokenId) {}
-
-    function setSubscriptionFee() public onlyOwner {}
+    function setSubscriptionFee(uint256 fee) public onlyOwner {
+        subscriptionFee = fee;
+    }
 
     function getSubscriptionFee() public view returns (uint256) {
         return subscriptionFee;
     }
 
-    function withdraw() public isMeetingOwner(tokenId) {}
+    function withdraw(uint256 tokenId) public isMeetingOwner(tokenId) {
+        require(meetings[tokenId].balance > 0, "No balance to withdraw");
+        require(
+            usdcToken.balanceOf(address(this)) >= meetings[tokenId].balance,
+            "You do not have enough USDC to withdraw"
+        );
+        usdcToken.transfer(msg.sender, meetings[tokenId].balance);
+        meetings[tokenId].balance = 0;
+    }
 }
