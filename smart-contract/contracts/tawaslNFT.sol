@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -35,7 +36,7 @@ contract TawaslNFT is ERC1155, Ownable {
     address USDC_ADDRESS = address(0xE6d51E332C1110dec7Ec645cf5FA7738FdF28233);
     IERC20 internal usdcToken;
 
-    mapping(uint256 => meeting) _meetings;
+    mapping(uint256 => meeting) meetings;
     mapping(address => subscription) subscriptions;
 
     event MeetingCreated(
@@ -77,12 +78,12 @@ contract TawaslNFT is ERC1155, Ownable {
         _;
     }
 
-    modifier isMeeting() {
+    modifier isMeeting(uint256 id) {
         require(meetings[id].isValue == true, "Meeting does not exist");
         _;
     }
 
-    modifier isMeetingOwner() {
+    modifier isMeetingOwner(uint256 id) {
         require(meetings[id].isValue == true, "Not a valid meeting");
         require(
             meetings[id].owner == msg.sender,
