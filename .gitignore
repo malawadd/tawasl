@@ -36,3 +36,5 @@ yarn-error.log*
 
 /smart-contract/node_modules
 /smart-contract/.env
+
+.env
